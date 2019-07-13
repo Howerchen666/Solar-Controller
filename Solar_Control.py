@@ -31,6 +31,9 @@ io.setup(5,io.IN)
 #Manual/Auto Swith Button
 io.setup(16,io.IN)
 
+#inverter Relay
+io.setup(26,io.OUT)
+
 #Setup Display
 DS = 17   #DIO
 
@@ -50,6 +53,7 @@ city = 0
 isCity = 5
 volt = 9.56
 isManual = False
+solar = True
 
 #-------------------------------Display---------------------------------
 def setBitData(data):
@@ -164,7 +168,17 @@ def showDigit(num, showDotPoint):
         setBitData(True) # C
         setBitData(True) # B
         setBitData(False) # A
-
+    elif (num == 11) :
+        #Letter A
+        setBitData(not showDotPoint)
+        setBitData(False)
+        setBitData(False)
+        setBitData(False)
+        setBitData(True)
+        setBitData(False)
+        setBitData(False)
+        setBitData(False)
+        
 def showLocation(location):
     for x in range(0,8):
         if x == location:
@@ -205,27 +219,49 @@ def displayVoltage():
             time.sleep(0.001)
             
             showDigitWithLocation(isCity, False, 7)
-            showDigitWithLocation(isManual,False,4)
-
+            #showDigitWithLocation(isManual,False,5)
+            if isManual == 0:
+                showDigitWithLocation(11,False,5)
+            else:
+                showDigitWithLocation(0,False,5)
 #-----------------------Multi Treading For Display----------------------
 bgThread = threading.Thread(target = displayVoltage, args = ())
 bgThread.start()
 
-#---------------------Read Voltage with I2C----------------------
+#---------------------Read Voltage with I2C-----------------------------
 def readVoltage():
 	global volt
 	while True:
 		bus.write_byte(address,A0) 
 		value = bus.read_byte(address)
-		volt = round(12.4 / 207 * value, 2)
+		volt = round(12.4 / 212 * value, 2)
             
 		time.sleep(0.3)
 		
-#-----------------------Multi Treading For ADDA----------------------
+#-----------------------Multi Treading For ADDA-------------------------
 bgThread2 = threading.Thread(target = readVoltage, args = ())
 bgThread2.start()
 
-#--------------------Main Thread--------------------
+#-----------------------Controlling Reverter Relay----------------------
+def switchRelay():
+    global solar
+    
+    while True:
+        if solar == True:
+            io.output(26, False)
+            time.sleep(3.0)
+            io.output(4,False)
+        else:
+            io.output(26, True)
+            io.output(4,True)
+            
+        time.sleep(0.3)
+        
+#-----------------------Multi Treading For Relay----------------------
+bgThread3 = threading.Thread(target = switchRelay, args = ())
+bgThread3.start()
+
+#-----------------------------Main Thread------------------------------
 
 io.setup(5, io.IN) #button
 io.setup(4, io.OUT)#relay
@@ -279,6 +315,4 @@ while True:
     
     previousOn = solar
     
-    io.output(4, not solar)
-    
-    time.sleep(0.01)
+    time.sleep(0.1)
