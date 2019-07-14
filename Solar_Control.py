@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-
+#Developed By Tom & Hower
 #---------------------------import modules------------------------------
 import RPi.GPIO as io
 import time
