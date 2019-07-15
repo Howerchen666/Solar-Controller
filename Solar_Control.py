@@ -1,12 +1,13 @@
 # -*- coding:utf-8 -*-
-#Developed By Tom & Hower
+#Special Thanks to Tom
+
 #---------------------------import modules------------------------------
 import RPi.GPIO as io
 import time
 import smbus
 import math
 import threading
-
+import numpy as np
 #----------------------------Initializing-------------------------------
 
 #Setup I2C
@@ -55,6 +56,14 @@ volt = 9.56
 isManual = False
 solar = True
 
+#set up array for moving average
+movingAverage = []
+
+for i in range(0,30):
+    bus.write_byte(address,A0) 
+    value = bus.read_byte(address)
+    volt = round(12.4 / 212 * value, 2)
+    movingAverage.append(volt)
 #-------------------------------Display---------------------------------
 def setBitData(data):
     # Send bit
@@ -230,13 +239,16 @@ bgThread.start()
 
 #---------------------Read Voltage with I2C-----------------------------
 def readVoltage():
-	global volt
-	while True:
-		bus.write_byte(address,A0) 
-		value = bus.read_byte(address)
-		volt = round(12.4 / 212 * value, 2)
-            
-		time.sleep(0.3)
+    global volt
+    global movingAverage
+    while True:
+        bus.write_byte(address,A0) 
+        value = bus.read_byte(address)
+        volt1 = round(12.4 / 212 * value, 2)
+        movingAverage.append(volt1)
+        del movingAverage[0]
+        volt = np.average(movingAverage)
+        time.sleep(0.3)
 		
 #-----------------------Multi Treading For ADDA-------------------------
 bgThread2 = threading.Thread(target = readVoltage, args = ())
@@ -305,7 +317,7 @@ while True:
 			on = False	
     else:
 		#Auto
-		if volt > 12.3:
+		if volt > 12.6:
 			solar = True
 			
 		if volt < 11.0:
