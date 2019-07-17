@@ -318,10 +318,10 @@ while True:
     else:
 		#Auto
 		if volt > 12.6:
-			solar = True
+			solar = True  #If the voltage is higher than 12.6 switch to solar
 			
 		if volt < 11.3:
-			 solar = False
+			 solar = False   #If voltage is under 11.3 switch to city power
 	
     city = not solar
     
