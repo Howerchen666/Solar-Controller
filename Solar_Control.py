@@ -320,8 +320,8 @@ while True:
 		if volt > 12.6:
 			solar = True
 			
-		if volt < 11.0:
-			solar = False
+		if volt < 11.3:
+			 solar = False
 	
     city = not solar
     
