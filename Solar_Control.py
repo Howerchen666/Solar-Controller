@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-#Special Thanks to Tom
+#Special thanks to Tom
 
 #---------------------------import modules------------------------------
 import RPi.GPIO as io
@@ -8,6 +8,7 @@ import smbus
 import math
 import threading
 import numpy as np
+import sys
 #----------------------------Initializing-------------------------------
 
 #Setup I2C
@@ -52,7 +53,7 @@ io.output(SHCP, False)
 #Initialize Variable
 city = 0
 isCity = 5
-volt = 9.56
+volt = 100
 isManual = False
 solar = True
 
@@ -62,8 +63,13 @@ movingAverage = []
 for i in range(0,30):
     bus.write_byte(address,A0) 
     value = bus.read_byte(address)
-    volt = round(12.4 / 212 * value, 2)
-    movingAverage.append(volt)
+    volt1 = round(12.4 / 207 * value, 2)
+    movingAverage.append(volt1)
+
+#Initializing Fan Control
+def cpu_temp():
+    with open("/sys/class/thermal/thermal_zone0/temp", 'r') as f:
+        return float(f.read())/1000
 #-------------------------------Display---------------------------------
 def setBitData(data):
     # Send bit
@@ -244,7 +250,7 @@ def readVoltage():
     while True:
         bus.write_byte(address,A0) 
         value = bus.read_byte(address)
-        volt1 = round(12.4 / 212 * value, 2)
+        volt1 = round(12.4 / 204 * value, 2)
         movingAverage.append(volt1)
         del movingAverage[0]
         volt = np.average(movingAverage)
@@ -272,6 +278,34 @@ def switchRelay():
 #-----------------------Multi Treading For Relay----------------------
 bgThread3 = threading.Thread(target = switchRelay, args = ())
 bgThread3.start()
+
+#-----------------------Multi Treading For Fan----------------------
+def fan():
+    channel = 19
+
+    # close air fan first
+    io.setup(channel, io.OUT)
+    is_close = True
+    while True:
+        temp = cpu_temp()
+        if is_close:
+            if temp > 50.0:
+                #print time.ctime(), temp, 'open air fan'
+                io.output(channel, 1)
+                is_close = False
+        else:
+            if temp < 40.0:
+                #print time.ctime(), temp, 'close air fan'
+                print('fan close')
+                io.output(channel, 0)
+                is_close = True
+
+        time.sleep(2.0)
+        #print time.ctime(), temp
+        print(temp)
+
+bgThread4 = threading.Thread(target = fan, args = ())
+bgThread4.start()
 
 #-----------------------------Main Thread------------------------------
 
@@ -317,11 +351,11 @@ while True:
 			on = False	
     else:
 		#Auto
-		if volt > 12.6:
-			solar = True  #If the voltage is higher than 12.6 switch to solar
+		if volt >= 12.6:
+			solar = True
 			
-		if volt < 11.3:
-			 solar = False   #If voltage is under 11.3 switch to city power
+		if volt <= 11.2:
+			solar = False
 	
     city = not solar
     
