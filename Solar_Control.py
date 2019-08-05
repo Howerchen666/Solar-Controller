@@ -9,6 +9,47 @@ import math
 import threading
 import numpy as np
 import sys
+#----------------------------Port Config--------------------------------
+
+# Set to the GPIO port of main relay
+relay = 4
+# Set to the GPIO port of the switch button
+switchButton = 20
+# Set to the GPIO port of the manual/auto mode button
+manualAutoSwitch = 21
+
+# Set to true if you also have a relay that turns off the inverter when unused
+inverterRelayEnabled = False
+# Set the port of inverter relay
+inverterRelay = 26
+
+# Set GPIO ports of dual 74HC595 display
+# DS/DIO
+displayDS = 17
+# SHCP/SCK
+displaySHCP = 22
+# STCP/RCK
+displaySTCP = 27
+
+# Calibration data:
+# Calculate adda using: divisor / multiplier * addaValue
+addaDivisor = 12.6
+addaMultiplier = 112
+
+# Set to True to enable auto controlling of fan
+fanEnabled = False
+# Set to the GPIO where the relay controlling the fan is connected
+fanPort = 19
+
+# Set to True if you want to use LED in addition to the 8-digits display
+ledEnabled = True
+# LED representing whether manual mode is on
+manualModeLED = 16
+# LED representing whether the solar power is used
+solarEnergyLED = 12
+# LED representing whether the grid/city power is used
+gridIndicator = 26
+
 #----------------------------Initializing-------------------------------
 
 #Setup I2C
@@ -25,23 +66,24 @@ bus = smbus.SMBus(1)
 io.setmode(io.BCM)
 
 #Relay
-io.setup(4, io.OUT)
+io.setup(relay, io.OUT)
 
 #Actual Switch Button
-io.setup(5,io.IN)
+io.setup(switchButton,io.IN)
 
 #Manual/Auto Swith Button
-io.setup(16,io.IN)
+io.setup(manualAutoSwitch,io.IN)
 
 #inverter Relay
-io.setup(26,io.OUT)
+if inverterRelayEnabled == True:
+    io.setup(inverterRelay,io.OUT)
 
 #Setup Display
-DS = 17   #DIO
+DS = displayDS   #DIO
 
-SHCP = 22 #SCK
+SHCP = displaySHCP #SCK
 
-STCP = 27 #RCK
+STCP = displaySTCP #RCK
 
 io.setup(DS, io.OUT)
 io.setup(STCP, io.OUT)
@@ -49,6 +91,12 @@ io.setup(SHCP, io.OUT)
 
 io.output(STCP, False)
 io.output(SHCP, False)
+
+# Setup LEDs
+if ledEnabled == True:
+    io.setup(manualModeLED, io.OUT)
+    io.setup(solarEnergyLED, io.OUT)
+    io.setup(gridIndicator, io.OUT)
 
 #Initialize Variable
 city = 0
@@ -247,10 +295,12 @@ bgThread.start()
 def readVoltage():
     global volt
     global movingAverage
+    global addaDivisor
+    global addaMultiplier
     while True:
         bus.write_byte(address,A0) 
         value = bus.read_byte(address)
-        volt1 = round(12.4 / 204 * value, 2)
+        volt1 = round(addaDivisor / addaMultiplier * value, 2)
         movingAverage.append(volt1)
         del movingAverage[0]
         volt = np.average(movingAverage)
@@ -263,15 +313,25 @@ bgThread2.start()
 #-----------------------Controlling Reverter Relay----------------------
 def switchRelay():
     global solar
+
+    # Allows switching on first run
+    # This variable prevents io.output from being called repeatedly
+    previousSolar = not solar
     
     while True:
         if solar == True:
-            io.output(26, False)
-            time.sleep(3.0)
-            io.output(4,False)
+            if previousSolar == False:
+                if inverterRelayEnabled == True:
+                    io.output(inverterRelay, False)
+                    time.sleep(3.0)
+                io.output(relay,False)
         else:
-            io.output(26, True)
-            io.output(4,True)
+            if previousSolar == True:
+                if inverterRelayEnabled == True:
+                    io.output(inverterRelay, True)
+                io.output(relay,True)
+
+        previousSolar = solar
             
         time.sleep(0.3)
         
@@ -281,10 +341,10 @@ bgThread3.start()
 
 #-----------------------Multi Treading For Fan----------------------
 def fan():
-    channel = 19
+    global fanPort
 
     # close air fan first
-    io.setup(channel, io.OUT)
+    io.setup(fanPort, io.OUT)
     is_close = True
     while True:
         temp = cpu_temp()
@@ -304,13 +364,12 @@ def fan():
         #print time.ctime(), temp
         print(temp)
 
-bgThread4 = threading.Thread(target = fan, args = ())
-bgThread4.start()
+if fanEnabled is True:
+    bgThread4 = threading.Thread(target = fan, args = ())
+    bgThread4.start()
 
 #-----------------------------Main Thread------------------------------
 
-io.setup(5, io.IN) #button
-io.setup(4, io.OUT)#relay
 buttonOn = False
 solar = False
 
@@ -323,7 +382,7 @@ while True:
         isCity = 10
         
     #---Manual switch
-    button = io.input(16)
+    button = io.input(manualAutoSwitch)
     
     if button == 1 and manualOn == False:
         isManual = not isManual
@@ -337,7 +396,7 @@ while True:
     #---Switching
         
     if isManual == True:
-		button = io.input(5)
+		button = io.input(switchButton)
 		
 		if button == 1 and buttonOn == False:
 			solar = not solar
@@ -360,5 +419,11 @@ while True:
     city = not solar
     
     previousOn = solar
+
+    #LEDs
+    if ledEnabled == True:
+        io.output(manualModeLED, isManual)
+        io.output(solarEnergyLED, solar)
+        io.output(gridIndicator, city)
     
     time.sleep(0.1)
