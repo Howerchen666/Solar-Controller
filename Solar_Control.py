@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-#Special thanks to Tom
+#Created By Hower & Tom
 
 #---------------------------import modules------------------------------
 import RPi.GPIO as io
