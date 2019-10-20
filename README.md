@@ -1,6 +1,6 @@
 # Solar-Controller
 
-# To Dos
+To Dos
 - [ ] Write this project in C++ to make it work on arduino
 - [ ] Make a detailed tutorial explaining how to implement this project.
 
