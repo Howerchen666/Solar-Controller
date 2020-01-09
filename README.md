@@ -6,4 +6,4 @@ To configure the ports, simply set values in the port config section of the code
 
 More details to come!
 
-# I have also created a website which teaches you how to install solar power for your home and how to make the hardware side of this solar controller. Check out my site at https://solar.howerchen.cn
+I have also created a website which teaches you how to install solar power for your home and how to make the hardware side of this solar controller. Check out my site at https://solar.howerchen.cn
